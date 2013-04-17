@@ -1,2 +1,2 @@
-racquetball:
+all:
 	scons
