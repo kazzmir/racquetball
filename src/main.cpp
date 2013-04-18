@@ -142,28 +142,29 @@ public:
         return position;
     }
 
-    const Physics::Vector getLook() const {
-        double r_theta = lookTheta * ALLEGRO_PI / 180.0;
-        double r_phi = lookPhi * ALLEGRO_PI / 180.0;
+    /* theta and phi should be in degrees */
+    Physics::Vector onSphere(double theta, double phi) const {
+        double r_theta = theta * ALLEGRO_PI / 180.0;
+        double r_phi = phi * ALLEGRO_PI / 180.0;
         double x = sin(r_theta) * cos(r_phi);
         double z = cos(r_theta) * cos(r_phi);
         double y = sin(r_phi);
         return Physics::Vector(x, y, z);
     }
 
+    const Physics::Vector getLook() const {
+        return onSphere(lookTheta, lookPhi);
+    }
+
     const Physics::Vector getLookPerpendicular() const {
-        double r_theta = (lookTheta + 90) * ALLEGRO_PI / 180.0;
-        double r_phi = lookPhi * ALLEGRO_PI / 180.0;
-        double x = sin(r_theta) * cos(r_phi);
-        double z = cos(r_theta) * cos(r_phi);
-        double y = sin(r_phi);
-        return Physics::Vector(x, y, z);
+        return onSphere(lookTheta + 90, lookPhi);
     }
 
     /* Move the eye. x rotates theta, y rotates phi */
     void changeLook(double x, double y){
-        lookTheta -= x / 5;
-        lookPhi += y / 5;
+        double sensitivity = 6;
+        lookTheta -= x / sensitivity;
+        lookPhi -= y / sensitivity;
         if (lookPhi > 90){
             lookPhi = 90;
         }
