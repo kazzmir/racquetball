@@ -18,8 +18,12 @@ public:
     x(x), y(y), z(z){
     }
 
-    Vector operator+(const Vector & what){
+    Vector operator+(const Vector & what) const {
         return Vector(x + what.x, y + what.y, z + what.z);
+    }
+
+    Vector operator-(const Vector & what) const {
+        return Vector(x - what.x, y - what.y, z - what.z);
     }
 
     double getX() const {
@@ -34,7 +38,7 @@ public:
         return z;
     }
 
-    void debug(){
+    void debug() const {
         std::cout << "x: " << x << " y: " << y << " z: " << z << std::endl;
     }
 
@@ -114,7 +118,7 @@ public:
     Camera():
     position(0, 0, 0),
     velocity(0, 0, 0),
-    look(0, 0, -1){
+    look(0, 0, 0){
     }
 
     double positionX() const {
@@ -127,6 +131,10 @@ public:
     
     double positionZ() const {
         return position.getZ();
+    }
+
+    const Physics::Vector & getPosition() const {
+        return position;
     }
 
     const Physics::Vector & getLook() const {
@@ -145,17 +153,55 @@ public:
     Physics::Vector look;
 };
 
+void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & camera, const Physics::Vector & look, const Physics::Vector & up){
+    ALLEGRO_TRANSFORM tmp;
+
+    float f1, f2, f3;
+    float u1, u2, u3;
+    float s1, s2, s3;
+    float len_d;
+
+    Physics::Vector f = (look - camera).normalize();
+    Physics::Vector s = f.cross(up);
+    Physics::Vector u = s.cross(f);
+
+    al_identity_transform(&tmp);
+
+    tmp.m[0][0] = s.getX();
+    tmp.m[0][1] = u.getX();
+    tmp.m[0][2] = -f.getX();
+    tmp.m[0][3] = 0;
+
+    tmp.m[1][0] = s.getY();
+    tmp.m[1][1] = u.getY();
+    tmp.m[1][2] = -f.getY();
+    tmp.m[1][3] = 0;
+
+    tmp.m[2][0] = s.getZ();
+    tmp.m[2][1] = u.getZ();
+    tmp.m[2][2] = -f.getZ();
+    tmp.m[2][3] = 0;
+
+    tmp.m[3][0] = 0;
+    tmp.m[3][1] = 0;
+    tmp.m[3][2] = 0;
+    tmp.m[3][3] = 1;
+
+    al_compose_transform(transform, &tmp);
+}
+
 void draw(const Camera & camera){
     al_clear_to_color(al_map_rgb_f(0, 0, 0));
     ALLEGRO_TRANSFORM transform;
     al_identity_transform(&transform);
     al_translate_transform_3d(&transform, -camera.positionX(), -camera.positionY(), -camera.positionZ());
     Physics::Vector up(0, 1, 0);
-    Physics::Vector cross = up.cross(camera.getLook()).normalize();
-    cross.debug();
-    std::cout << "radians " << acos(up.dot(camera.getLook())) << std::endl;
+    // Physics::Vector cross = up.cross(camera.getLook()).normalize();
+    // cross.debug();
+    // std::cout << "radians " << acos(up.dot(camera.getLook())) << std::endl;
     // al_rotate_transform_3d(&transform, cross.getX(), cross.getY(), cross.getZ(), acos(up.dot(camera.getLook())));
-    al_rotate_transform_3d(&transform, 0, 1, 0, 0);
+    // al_rotate_transform_3d(&transform, 0, 1, 0, 0);
+    al_look_at_transform(&transform, camera.getPosition(), camera.getLook(), up);
     
     ALLEGRO_DISPLAY *display = al_get_current_display();
     int dw = al_get_display_width(display);
@@ -264,11 +310,33 @@ int main(){
                             camera.move(Physics::Vector(0, 0, speed));
                             break;
                         }
+                        case 82: {
+                            display = true;
+                            camera.move(Physics::Vector(-speed, 0, 0));
+                            break;
+                        }
+                        case 83: {
+                            display = true;
+                            camera.move(Physics::Vector(speed, 0, 0));
+                            break;
+                        }
+                        case 24: {
+                            display = true;
+                            camera.move(Physics::Vector(0, speed, 0));
+                            break;
+                        }
+                        case 26: {
+                            display = true;
+                            camera.move(Physics::Vector(0, -speed, 0));
+                            break;
+                        }
                         case 59: done = true; break;
                     }
                     break;
                 }
             }
+
+            camera.getPosition().debug();
         }
 
         if (first || display){
