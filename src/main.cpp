@@ -22,6 +22,10 @@ public:
         return Vector(x + what.x, y + what.y, z + what.z);
     }
 
+    Vector operator*(const double magnitude) const {
+        return Vector(x * magnitude, y * magnitude, z * magnitude);
+    }
+
     Vector operator-(const Vector & what) const {
         return Vector(x - what.x, y - what.y, z - what.z);
     }
@@ -118,7 +122,8 @@ public:
     Camera():
     position(0, 0, 0),
     velocity(0, 0, 0),
-    look(0, 0, 0){
+    lookTheta(180),
+    lookPhi(0){
     }
 
     double positionX() const {
@@ -137,8 +142,38 @@ public:
         return position;
     }
 
-    const Physics::Vector & getLook() const {
-        return look;
+    const Physics::Vector getLook() const {
+        double r_theta = lookTheta * ALLEGRO_PI / 180.0;
+        double r_phi = lookPhi * ALLEGRO_PI / 180.0;
+        double x = sin(r_theta) * cos(r_phi);
+        double y = sin(r_theta) * sin(r_phi);
+        double z = cos(r_theta);
+        return Physics::Vector(x, y, z);
+    }
+
+    const Physics::Vector getLookPerpendicular() const {
+        double r_theta = (lookTheta + 90) * ALLEGRO_PI / 180.0;
+        double r_phi = lookPhi * ALLEGRO_PI / 180.0;
+        double x = sin(r_theta) * cos(r_phi);
+        double y = sin(r_theta) * sin(r_phi);
+        double z = cos(r_theta);
+        return Physics::Vector(x, y, z);
+    }
+
+
+
+    /* Move the eye. x rotates theta, y rotates phi */
+    void changeLook(double x, double y){
+        lookTheta -= x / 5;
+        lookPhi += y / 5;
+        if (lookPhi > 90){
+            lookPhi = 90;
+        }
+        if (lookPhi < -90){
+            lookPhi = -90;
+        }
+
+        std::cout << "Theta: " << lookTheta << " Phi: " << lookPhi << std::endl;
     }
 
     void move(const Physics::Vector & much){
@@ -150,18 +185,17 @@ public:
     /* velocity */
     Physics::Vector velocity;
     /* where the camera is looking */
-    Physics::Vector look;
+    // Physics::Vector look;
+
+    double lookTheta;
+    double lookPhi;
 };
 
-void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & camera, const Physics::Vector & look, const Physics::Vector & up){
+void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & look, const Physics::Vector & up){
     ALLEGRO_TRANSFORM tmp;
 
-    float f1, f2, f3;
-    float u1, u2, u3;
-    float s1, s2, s3;
-    float len_d;
-
-    Physics::Vector f = (look - camera).normalize();
+    // Physics::Vector f = (look - camera).normalize();
+    Physics::Vector f = look.normalize();
     Physics::Vector s = f.cross(up);
     Physics::Vector u = s.cross(f);
 
@@ -201,7 +235,7 @@ void draw(const Camera & camera){
     // std::cout << "radians " << acos(up.dot(camera.getLook())) << std::endl;
     // al_rotate_transform_3d(&transform, cross.getX(), cross.getY(), cross.getZ(), acos(up.dot(camera.getLook())));
     // al_rotate_transform_3d(&transform, 0, 1, 0, 0);
-    al_look_at_transform(&transform, camera.getPosition(), camera.getLook(), up);
+    al_look_at_transform(&transform, camera.getLook(), up);
     
     ALLEGRO_DISPLAY *display = al_get_current_display();
     int dw = al_get_display_width(display);
@@ -278,74 +312,89 @@ int main(){
         return -1;
     }
     al_install_keyboard();
+    al_install_mouse();
     al_init_primitives_addon();
     al_set_new_display_flags(ALLEGRO_WINDOWED);
 
+    ALLEGRO_TIMER * timer = al_create_timer(ALLEGRO_BPS_TO_SECS(60));
     ALLEGRO_DISPLAY * display = al_create_display(800, 600);
     ALLEGRO_EVENT_QUEUE * queue = al_create_event_queue();
     al_register_event_source(queue, al_get_keyboard_event_source());
+    al_register_event_source(queue, al_get_mouse_event_source());
+    al_register_event_source(queue, al_get_timer_event_source(timer));
 
+    al_hide_mouse_cursor(display);
+    al_grab_mouse(display);
     Racquetball::Camera camera;
 
     camera.move(Physics::Vector(0, 0, 120));
+    al_start_timer(timer);
 
     ALLEGRO_EVENT event;
     bool done = false;
-    bool first = true;
     double speed = 0.5;
     while (!done){
-        bool display = false;
+        bool draw = false;
         while (al_get_next_event(queue, &event)){
             switch (event.type){
+                case ALLEGRO_EVENT_TIMER: {
+                    draw = true;
+                    break;
+                }
+                case ALLEGRO_EVENT_MOUSE_AXES: {
+                    camera.changeLook(event.mouse.dx, event.mouse.dy);
+                    camera.getLook().debug();
+                    al_set_mouse_xy(display, al_get_display_width(display) / 2, al_get_display_height(display) / 2);
+                    break;
+                }
                 case ALLEGRO_EVENT_KEY_CHAR: {
-                    std::cout << "Pressed " << event.keyboard.keycode << std::endl;
                     switch (event.keyboard.keycode){
-                        case 84: {
-                            display = true;
-                            camera.move(Physics::Vector(0, 0, -speed));
+                        case ALLEGRO_KEY_W:
+                        case ALLEGRO_KEY_UP: {
+                            // camera.move(Physics::Vector(0, 0, -speed));
+                            camera.move(camera.getLook() * speed);
                             break;
                         }
-                        case 85: {
-                            display = true;
-                            camera.move(Physics::Vector(0, 0, speed));
+                        case ALLEGRO_KEY_X:
+                        case ALLEGRO_KEY_DOWN: {
+                            // camera.move(Physics::Vector(0, 0, speed));
+                            camera.move(camera.getLook() * -speed);
                             break;
                         }
-                        case 82: {
-                            display = true;
-                            camera.move(Physics::Vector(-speed, 0, 0));
+                        case ALLEGRO_KEY_A:
+                        case ALLEGRO_KEY_LEFT: {
+                            camera.move(camera.getLookPerpendicular() * speed);
                             break;
                         }
-                        case 83: {
-                            display = true;
-                            camera.move(Physics::Vector(speed, 0, 0));
+                        case ALLEGRO_KEY_D:
+                        case ALLEGRO_KEY_RIGHT: {
+                            camera.move(camera.getLookPerpendicular() * -speed);
                             break;
                         }
-                        case 24: {
-                            display = true;
+                        /*
+                        case ALLEGRO_KEY_Z: {
                             camera.move(Physics::Vector(0, speed, 0));
                             break;
                         }
-                        case 26: {
-                            display = true;
+                        case ALLEGRO_KEY_X: {
                             camera.move(Physics::Vector(0, -speed, 0));
                             break;
                         }
-                        case 59: done = true; break;
+                        */
+                        case ALLEGRO_KEY_ESCAPE: done = true; break;
                     }
                     break;
                 }
             }
 
-            camera.getPosition().debug();
+            // camera.getPosition().debug();
         }
 
-        if (first || display){
+        if (draw){
             Racquetball::draw(camera);
         } else {
-            al_rest(0.01);
+            al_rest(0.001);
         }
-
-        first = false;
     }
 
     /*
@@ -356,6 +405,7 @@ int main(){
     }
     */
 
+    al_ungrab_mouse();
     al_destroy_display(display);
     return 0;
 }
