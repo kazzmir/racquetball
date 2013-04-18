@@ -145,8 +145,10 @@ public:
     const Physics::Vector getLook() const {
         double r_theta = lookTheta * ALLEGRO_PI / 180.0;
         double r_phi = lookPhi * ALLEGRO_PI / 180.0;
-        double x = sin(r_theta) * cos(r_phi);
-        double y = sin(r_theta) * sin(r_phi);
+        // double x = sin(r_theta) * cos(r_phi);
+        // double y = sin(r_theta) * sin(r_phi);
+        double x = sin(r_theta);
+        double y = sin(r_phi);
         double z = cos(r_theta);
         return Physics::Vector(x, y, z);
     }
@@ -154,13 +156,17 @@ public:
     const Physics::Vector getLookPerpendicular() const {
         double r_theta = (lookTheta + 90) * ALLEGRO_PI / 180.0;
         double r_phi = lookPhi * ALLEGRO_PI / 180.0;
+        /*
         double x = sin(r_theta) * cos(r_phi);
         double y = sin(r_theta) * sin(r_phi);
         double z = cos(r_theta);
+        */
+
+        double x = sin(r_theta);
+        double y = sin(r_phi);
+        double z = cos(r_theta);
         return Physics::Vector(x, y, z);
     }
-
-
 
     /* Move the eye. x rotates theta, y rotates phi */
     void changeLook(double x, double y){
