@@ -225,6 +225,7 @@ void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & 
 
 void draw(const Camera & camera){
     al_clear_to_color(al_map_rgb_f(0, 0, 0));
+    al_clear_depth_buffer(1);
     ALLEGRO_TRANSFORM transform;
     al_identity_transform(&transform);
     al_translate_transform_3d(&transform, -camera.positionX(), -camera.positionY(), -camera.positionZ());
@@ -243,6 +244,32 @@ void draw(const Camera & camera){
     int distance = 10;
     al_perspective_transform(&transform, -distance * dw / dh, -distance, 50, distance * dw / dh, distance, 1000);
     al_set_projection_transform(display, &transform);
+
+    int size = 80;
+    ALLEGRO_VERTEX wall[4];
+    wall[0].x = -size;
+    wall[0].y = 0;
+    wall[0].z = 0;
+
+    wall[1].x = -size;
+    wall[1].y = 0;
+    wall[1].z = -size;
+    
+    wall[2].x = -size;
+    wall[2].y = -size;
+    wall[2].z = -size;
+    
+    wall[3].x = -size;
+    wall[3].y = -size;
+    wall[3].z = 0;
+
+    for (int i = 0; i < 4; i++){
+        wall[i].color = al_map_rgb_f(1, 1, 1);
+        wall[i].u = 0;
+        wall[i].v = 0;
+    }
+
+    al_draw_prim(wall, NULL, NULL, 0, 4, ALLEGRO_PRIM_TRIANGLE_FAN);
 
     /*
     for (int i = -100; i < 100; i++){
@@ -316,7 +343,10 @@ int main(){
     al_set_new_display_flags(ALLEGRO_WINDOWED);
 
     ALLEGRO_TIMER * timer = al_create_timer(ALLEGRO_BPS_TO_SECS(60));
+    al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 24, ALLEGRO_REQUIRE);
     ALLEGRO_DISPLAY * display = al_create_display(800, 600);
+    al_set_render_state(ALLEGRO_DEPTH_TEST, 1);
+    al_set_render_state(ALLEGRO_DEPTH_FUNCTION, ALLEGRO_RENDER_LESS);
     ALLEGRO_EVENT_QUEUE * queue = al_create_event_queue();
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_mouse_event_source());
