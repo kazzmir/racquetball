@@ -172,7 +172,7 @@ public:
             lookPhi = -90;
         }
 
-        std::cout << "Theta: " << lookTheta << " Phi: " << lookPhi << std::endl;
+        // std::cout << "Theta: " << lookTheta << " Phi: " << lookPhi << std::endl;
     }
 
     void move(const Physics::Vector & much){
@@ -223,6 +223,107 @@ void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & 
     al_compose_transform(transform, &tmp);
 }
 
+class Cube{
+public:
+    Cube(int size){
+        points[0].x = -size / 2;
+        points[0].y = -size / 2;
+        points[0].z = -size / 2;
+
+        points[1].x = size / 2;
+        points[1].y = -size / 2;
+        points[1].z = -size / 2;
+
+        points[2].x = -size / 2;
+        points[2].y = -size / 2;
+        points[2].z = size / 2;
+
+        points[3].x = size / 2;
+        points[3].y = -size / 2;
+        points[3].z = size / 2;
+
+        points[4].x = -size / 2;
+        points[4].y = size / 2;
+        points[4].z = -size / 2;
+
+        points[5].x = size / 2;
+        points[5].y = size / 2;
+        points[5].z = -size / 2;
+
+        points[6].x = -size / 2;
+        points[6].y = size / 2;
+        points[6].z = size / 2;
+
+        points[7].x = size / 2;
+        points[7].y = size / 2;
+        points[7].z = size / 2;
+
+        for (int i = 0; i < 8; i++){
+            points[i].u = 0;
+            points[i].v = 0;
+        }
+    }
+
+    void draw(double x, double y, double z, const ALLEGRO_COLOR & color, int * indicies){
+        ALLEGRO_TRANSFORM transform;
+        al_identity_transform(&transform);
+        al_translate_transform_3d(&transform, x, y, z);
+        const ALLEGRO_TRANSFORM * current = al_get_current_transform();
+        ALLEGRO_TRANSFORM save;
+        al_copy_transform(&save, current);
+        al_compose_transform(&transform, current);
+        al_use_transform(&transform);
+
+        for (int i = 0; i < 4; i++){
+            points[indicies[i]].color = color;
+        }
+
+        al_draw_indexed_prim(points, NULL, NULL, indicies, 4, ALLEGRO_PRIM_TRIANGLE_FAN);
+        al_use_transform(&save);
+    }
+
+    void drawLeft(double x, double y, double z, const ALLEGRO_COLOR & color){
+        int indicies[4] = {0, 2, 6, 4};
+        draw(x, y, z, color, indicies);
+    }
+
+    void drawRight(double x, double y, double z, const ALLEGRO_COLOR & color){
+        int indicies[4] = {1, 3, 7, 5};
+        draw(x, y, z, color, indicies);
+    }
+    
+    void drawTop(double x, double y, double z, const ALLEGRO_COLOR & color){
+        int indicies[4] = {0, 1, 3, 2};
+        draw(x, y, z, color, indicies);
+    }
+    
+    void drawBottom(double x, double y, double z, const ALLEGRO_COLOR & color){
+        int indicies[4] = {4, 5, 7, 6};
+        draw(x, y, z, color, indicies);
+    }
+    
+    void drawBack(double x, double y, double z, const ALLEGRO_COLOR & color){
+        int indicies[4] = {0, 1, 5, 4};
+        draw(x, y, z, color, indicies);
+    }
+    
+    void drawFront(double x, double y, double z, const ALLEGRO_COLOR & color){
+        int indicies[4] = {2, 3, 7, 6};
+        draw(x, y, z, color, indicies);
+    }
+
+    void draw(double x, double y, double z, const ALLEGRO_COLOR & color){
+        drawLeft(x, y, z, color);
+        drawRight(x, y, z, color);
+        drawTop(x, y, z, color);
+        drawBottom(x, y, z, color);
+        drawFront(x, y, z, color);
+        drawBack(x, y, z, color);
+    }
+
+    ALLEGRO_VERTEX points[8];
+};
+
 void draw(const Camera & camera){
     al_clear_to_color(al_map_rgb_f(0, 0, 0));
     al_clear_depth_buffer(1);
@@ -241,73 +342,58 @@ void draw(const Camera & camera){
     int dw = al_get_display_width(display);
     int dh = al_get_display_height(display);
     // al_perspective_transform(&transform, -180 * dw / dh, -180, 180, 180 * dw / dh, 180, 3000);
-    int distance = 10;
-    al_perspective_transform(&transform, -distance * dw / dh, -distance, 50, distance * dw / dh, distance, 1000);
+    float distance = 10;
+
+    float aspect = (float) dw / (float) dh;
+    float fovx = 90;
+    float fovy = fovx / aspect;
+    /*
+    float left = -dw / 4;
+    float right = dw / 4;
+    float top = -dh / 4;
+    float bottom = dh / 4;
+    */
+
+    float left = -distance / 2 * aspect;
+    float right = distance / 2 * aspect;
+    float top = -distance / 2;
+    float bottom = distance / 2;
+
+    /*
+    std::cout << "Fovy: " << fovy << std::endl;
+    std::cout << "Y top: " << (1 / tan(fovy * ALLEGRO_PI / 180.0 / 2)) << std::endl;
+    */
+
+    // float right = tan(fov * ALLEGRO_PI / 180 / 2) * near * 2 + left;
+    float near = (right - left) / 2 / tan(fovx * ALLEGRO_PI / 180 / 2);
+    float far = near + 1000;
+
+    /*
+    std::cout << "Tan of fov: " << tan(fovx * ALLEGRO_PI / 180.0 / 2.0) << std::endl;
+    std::cout << "Fov: " << fovx << std::endl;
+    */
+    // std::cout << "Near z " << near << std::endl;
+
+    // al_perspective_transform(&transform, -distance * dw / dh, -distance, 50, distance * dw / dh, distance, 1000);
+    al_perspective_transform(&transform, left, top, near, right, bottom, far);
+    // al_perspective_transform(&transform, -1, -1, 5, 1, 1, far);
+
     al_set_projection_transform(display, &transform);
 
-    int size = 80;
-    ALLEGRO_VERTEX wall[4];
-    wall[0].x = -size;
-    wall[0].y = 0;
-    wall[0].z = 0;
+    al_set_blender(ALLEGRO_ADD, ALLEGRO_ALPHA, ALLEGRO_INVERSE_ALPHA);
 
-    wall[1].x = -size;
-    wall[1].y = 0;
-    wall[1].z = -size;
+    Cube cube(500);
+
+    cube.drawLeft(0, 0, 0, al_map_rgba_f(1, 0.8, 0.3, 0.8));
+    cube.drawRight(0, 0, 0, al_map_rgba_f(0.8, 1, 0.8, 0.8));
+    cube.drawTop(0, 0, 0, al_map_rgba_f(1, 0.8, 1, 0.8));
+    cube.drawBottom(0, 0, 0, al_map_rgba_f(0.3, 0.5, 0.8, 0.8));
+    cube.drawBack(0, 0, 0, al_map_rgba_f(0.7, 0.4, 0.8, 0.8));
+    cube.drawFront(0, 0, 0, al_map_rgba_f(0.2, 0.9, 0.5, 0.8));
+
+    cube.draw(-600, 0, 0, al_map_rgb_f(1, 1, 1));
+    cube.draw(600, 0, 0, al_map_rgb_f(1, 1, 1));
     
-    wall[2].x = -size;
-    wall[2].y = -size;
-    wall[2].z = -size;
-    
-    wall[3].x = -size;
-    wall[3].y = -size;
-    wall[3].z = 0;
-
-    for (int i = 0; i < 4; i++){
-        wall[i].color = al_map_rgb_f(1, 1, 1);
-        wall[i].u = 0;
-        wall[i].v = 0;
-    }
-
-    al_draw_prim(wall, NULL, NULL, 0, 4, ALLEGRO_PRIM_TRIANGLE_FAN);
-
-    /*
-    for (int i = -100; i < 100; i++){
-        ALLEGRO_VERTEX v[1];
-        v[0].x = i;
-        v[0].y = i;
-        v[0].z = -10;
-        v[0].color = al_map_rgb_f(1, 1, 1);
-        v[0].u = 128;
-        v[0].v = 0;
-        al_draw_prim(v, NULL, NULL, 0, 1, ALLEGRO_PRIM_POINT_LIST);
-    }
-    */
-
-    /*
-    for (int y = 0; y < 20; y++){
-        for (int x = 0; x < 360; x += 5){
-            ALLEGRO_VERTEX v[1];
-            v[0].x = cos(x * ALLEGRO_PI / 180.0) * (20 - y);
-            v[0].y = y * 2;
-            v[0].z = -4 + sin(x * ALLEGRO_PI / 180) * (20 - y);
-            v[0].color = al_map_rgb_f(1, 1, 1);
-            v[0].u = 128;
-            v[0].v = 0;
-            al_draw_prim(v, NULL, NULL, 0, 1, ALLEGRO_PRIM_POINT_LIST);
-
-            v[0].x = cos(x * ALLEGRO_PI / 180.0) * (20 - y);
-            v[0].y = -y * 2;
-            v[0].z = -4 + sin(x * ALLEGRO_PI / 180) * (20 - y);
-            v[0].color = al_map_rgb_f(1, 1, 1);
-            v[0].u = 128;
-            v[0].v = 0;
-            al_draw_prim(v, NULL, NULL, 0, 1, ALLEGRO_PRIM_POINT_LIST);
-
-        }
-    }
-    */
-
     double radius = 20;
     for (int phi = 0; phi < 360; phi += 5){
         for (int rho = 0; rho < 360; rho += 5){
@@ -356,12 +442,12 @@ int main(){
     al_grab_mouse(display);
     Racquetball::Camera camera;
 
-    camera.move(Physics::Vector(0, 0, 120));
+    camera.move(Physics::Vector(0, 0, 600));
     al_start_timer(timer);
 
     ALLEGRO_EVENT event;
     bool done = false;
-    double speed = 0.5;
+    double speed = 1;
     while (!done){
         bool draw = false;
         while (al_get_next_event(queue, &event)){
@@ -372,7 +458,7 @@ int main(){
                 }
                 case ALLEGRO_EVENT_MOUSE_AXES: {
                     camera.changeLook(event.mouse.dx, event.mouse.dy);
-                    camera.getLook().debug();
+                    // camera.getLook().debug();
                     al_set_mouse_xy(display, al_get_display_width(display) / 2, al_get_display_height(display) / 2);
                     break;
                 }
@@ -412,6 +498,7 @@ int main(){
                         */
                         case ALLEGRO_KEY_ESCAPE: done = true; break;
                     }
+                    camera.getPosition().debug();
                     break;
                 }
             }
