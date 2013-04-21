@@ -201,7 +201,7 @@ void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & 
 
     // Physics::Vector f = (look - camera).normalize();
     Physics::Vector f = look.normalize();
-    Physics::Vector s = f.cross(up);
+    Physics::Vector s = f.cross(up).normalize();
     Physics::Vector u = s.cross(f);
 
     al_identity_transform(&tmp);
