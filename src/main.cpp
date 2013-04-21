@@ -164,6 +164,12 @@ public:
     void changeLook(double x, double y){
         double sensitivity = 6;
         lookTheta -= x / sensitivity;
+        if (lookTheta < 0){
+            lookTheta += 360;
+        }
+        if (lookTheta > 360){
+            lookTheta -= 360;
+        }
         lookPhi -= y / sensitivity;
         if (lookPhi > 90){
             lookPhi = 90;
