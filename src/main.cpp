@@ -372,7 +372,7 @@ void draw(const Camera & camera){
 
     // float right = tan(fov * ALLEGRO_PI / 180 / 2) * near * 2 + left;
     float near = (right - left) / 2 / tan(fovx * ALLEGRO_PI / 180 / 2);
-    float far = near + 1000;
+    float far = near + 3000;
 
     /*
     std::cout << "Tan of fov: " << tan(fovx * ALLEGRO_PI / 180.0 / 2.0) << std::endl;
@@ -453,7 +453,7 @@ int main(){
 
     ALLEGRO_EVENT event;
     bool done = false;
-    double speed = 1;
+    double speed = 5;
     while (!done){
         bool draw = false;
         while (al_get_next_event(queue, &event)){
