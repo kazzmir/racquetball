@@ -3,6 +3,8 @@
 #include <iostream>
 #include <math.h>
 #include <vector>
+#include <time.h>
+#include <stdlib.h>
 
 #include "pointer.h"
 
@@ -46,6 +48,25 @@ public:
         return *this;
     }
 
+    Vector & operator-=(const Vector & what){
+        x -= what.getX();
+        y -= what.getY();
+        z -= what.getZ();
+        return *this;
+    }
+    
+    void setZ(double z){
+        this->z = z;
+    }
+    
+    void setX(double x){
+        this->x = x;
+    }
+
+    void setY(double y){
+        this->y = y;
+    }
+
     double getX() const {
         return x;
     }
@@ -86,6 +107,8 @@ protected:
     double y;
     double z;
 };
+
+Vector gravity(0, 1, 0);
 
 }
 
@@ -228,8 +251,17 @@ public:
     model(20, 3){
     }
 
+    double getSize() const {
+        return 20;
+    }
+
+    void setPosition(const Physics::Vector & what){
+        this->position = what;
+    }
+
     void move(){
         position += velocity;
+        velocity += Physics::gravity;
     }
 
     const Physics::Vector & getPosition() const {
@@ -516,7 +548,7 @@ class Court{
 public:
     Court():
     court(1000),
-    ball(Physics::Vector(0, 0, 0)){
+    ball(Physics::Vector(0, 50, 0)){
         ball.setVelocity(Physics::Vector(1, 0.8, 2).normalize());
     }
 
@@ -540,8 +572,27 @@ public:
     void logic(){
         ball.move();
         if (outOfBounds(ball.getPosition())){
-            ball.setVelocity(-ball.getVelocity());
+            Physics::Vector next = -ball.getVelocity();
+            if (ball.getPosition().getY() > court.getHeight() / 2){
+                Physics::Vector where = ball.getPosition();
+                where.setY(court.getHeight() / 2 - ball.getSize());
+                ball.setPosition(where);
+                next = next / 2;
+            }
+            ball.setVelocity(next);
         }
+    }
+
+    double randomFloat(double what){
+        return (double) (rand() % 1000) * what / 1000.0;
+    }
+
+    double randomFloat(double low, double high){
+        return randomFloat(high - low) + low;
+    }
+
+    void hit(){
+        ball.setVelocity(Physics::Vector(randomFloat(-5, 5) * 3, -randomFloat(10) - 10, randomFloat(-5, 5) * 3));
     }
 
     void draw(double x, double y, double z) const {
@@ -720,6 +771,8 @@ int main(){
         return 1;
     }
 
+    srand(time(NULL));
+
     ALLEGRO_DISPLAY * display = setup_display(800, 600);
 
     ALLEGRO_EVENT_QUEUE * queue = al_create_event_queue();
@@ -750,6 +803,7 @@ int main(){
     };
 
     Hold hold;
+    bool hit = false;
 
     ALLEGRO_EVENT event;
     bool done = false;
@@ -772,6 +826,11 @@ int main(){
                         camera.move(camera.getLookPerpendicular() * -speed);
                     }
 
+                    if (hit){
+                        court.hit();
+                        hit = false;
+                    }
+
                     court.logic();
 
                     draw = true;
@@ -789,6 +848,10 @@ int main(){
                     bool pressed = event.type == ALLEGRO_EVENT_KEY_DOWN;
 
                     switch (event.keyboard.keycode){
+                        case ALLEGRO_KEY_SPACE: {
+                            hit = true;
+                            break;
+                        }
                         case ALLEGRO_KEY_W:
                         case ALLEGRO_KEY_UP: {
                             hold.up = pressed;
