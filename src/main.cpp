@@ -35,6 +35,17 @@ public:
         return Vector(x - what.x, y - what.y, z - what.z);
     }
 
+    Vector operator-() const {
+        return Vector(-x, -y, -z);
+    }
+
+    Vector & operator+=(const Vector & what){
+        x += what.getX();
+        y += what.getY();
+        z += what.getZ();
+        return *this;
+    }
+
     double getX() const {
         return x;
     }
@@ -80,8 +91,164 @@ protected:
 
 namespace Racquetball{
 
+class Translation{
+public:
+    Translation(double x, double y, double z){
+        ALLEGRO_TRANSFORM transform;
+        al_identity_transform(&transform);
+        al_translate_transform_3d(&transform, x, y, z);
+        const ALLEGRO_TRANSFORM * current = al_get_current_transform();
+        al_copy_transform(&save, current);
+        al_compose_transform(&transform, current);
+        al_use_transform(&transform);
+    }
+
+    ~Translation(){
+        al_use_transform(&save);
+    }
+
+    ALLEGRO_TRANSFORM save;
+};
+
+class Triangle{
+public:
+    Triangle(const Physics::Vector & point1, const Physics::Vector & point2, const Physics::Vector & point3):
+    point1(point1),
+    point2(point2),
+    point3(point3){
+    }
+
+    std::vector<Triangle> subdivide(double radius) const {
+        std::vector<Triangle> out;
+
+        Physics::Vector mid12 = ((point1 + point2) / 2).normalize() * radius;
+        Physics::Vector mid23 = ((point2 + point3) / 2).normalize() * radius;
+        Physics::Vector mid13 = ((point1 + point3) / 2).normalize() * radius;
+
+        out.push_back(Triangle(point1, mid12, mid13));
+        out.push_back(Triangle(mid12, point2, mid23));
+        out.push_back(Triangle(mid12, mid23, mid13));
+        out.push_back(Triangle(mid13, mid23, point3));
+
+        return out;
+    }
+
+    void setup_vertex(ALLEGRO_VERTEX * vertex, const Physics::Vector & point) const {
+        vertex->x = point.getX();
+        vertex->y = point.getY();
+        vertex->z = point.getZ();
+        vertex->u = 0;
+        vertex->v = 0;
+    }
+
+    void draw(const ALLEGRO_COLOR & color) const {
+        ALLEGRO_VERTEX points[3];
+        setup_vertex(&points[0], point1);
+        setup_vertex(&points[1], point2);
+        setup_vertex(&points[2], point3);
+
+        for (int i = 0; i < 3; i++){
+            points[i].color = color;
+        }
+
+        al_draw_prim(points, NULL, NULL, 0, 4, ALLEGRO_PRIM_TRIANGLE_FAN);
+        for (int i = 0; i < 3; i++){
+            points[i].color = al_map_rgb_f(0, 0, 0);
+        }
+        al_draw_prim(points, NULL, NULL, 0, 4, ALLEGRO_PRIM_LINE_LOOP);
+    }
+
+    Physics::Vector point1, point2, point3;
+};
+
+
+
+class Sphere{
+public:
+    Sphere(double radius, int level){
+        std::vector<Triangle> octohedron = initialOctohedron(radius);
+        triangles = generate(octohedron, radius, level);
+    }
+
+    std::vector<Triangle> triangles;
+
+    std::vector<Triangle> initialOctohedron(double radius){
+        std::vector<Triangle> out;
+
+        Physics::Vector xplus(1 * radius, 0, 0);
+        Physics::Vector xminus(-1 * radius, 0, 0);
+        Physics::Vector yplus(0, 1 * radius, 0);
+        Physics::Vector yminus(0, -1 * radius, 0);
+        Physics::Vector zplus(0, 0, 1 * radius);
+        Physics::Vector zminus(0, 0, -1 * radius);
+        
+        out.push_back(Triangle(xplus, zplus, yplus));
+        out.push_back(Triangle(yplus, zplus, xminus));
+        out.push_back(Triangle(xminus, zplus, yminus));
+        out.push_back(Triangle(yminus, zplus, xplus));
+        out.push_back(Triangle(xplus, yplus, zminus));
+        out.push_back(Triangle(yplus, xminus, zminus));
+        out.push_back(Triangle(xminus, yminus, zminus));
+        out.push_back(Triangle(yminus, xplus, zminus));
+
+        return out;
+    }
+
+    std::vector<Triangle> generate(const std::vector<Triangle> & in, double radius, int level){
+        if (level == 0){
+            return in;
+        }
+
+        std::vector<Triangle> out;
+
+        for (std::vector<Triangle>::const_iterator it = in.begin(); it != in.end(); it++){
+            const Triangle & original = *it;
+            std::vector<Triangle> more = original.subdivide(radius);
+            out.insert(out.end(), more.begin(), more.end());
+        }
+
+        return generate(out, radius, level - 1);
+    }
+
+    void draw(double x, double y, double z, const ALLEGRO_COLOR & color) const {
+        Translation translate(x, y, z);
+
+        for (std::vector<Triangle>::const_iterator it = triangles.begin(); it != triangles.end(); it++){
+            const Triangle & triangle = *it;
+            triangle.draw(color);
+        }
+    }
+};
+
 class Ball{
 public:
+    Ball(const Physics::Vector & position):
+    position(position),
+    velocity(0, 0, 0),
+    model(20, 3){
+    }
+
+    void move(){
+        position += velocity;
+    }
+
+    const Physics::Vector & getPosition() const {
+        return position;
+    }
+
+    void setVelocity(const Physics::Vector & velocity){
+        this->velocity = velocity;
+    }
+
+    const Physics::Vector & getVelocity() const {
+        return velocity;
+    }
+
+    void draw(double x, double y, double z) const {
+        Translation translate(x, y, z);
+        model.draw(position.getX(), position.getY(), position.getZ(), al_map_rgb_f(1, 1, 1));
+    }
+
     /* Sort of models different ball types.
      * pink = fast
      * green = normal
@@ -89,7 +256,8 @@ public:
      */
     double density;
     Physics::Vector position;
-    Physics::Vector move;
+    Physics::Vector velocity;
+    Sphere model;
 };
 
 class Behavior{
@@ -110,16 +278,6 @@ public:
     Util::ReferenceCount<Behavior> behavior;
     Physics::Vector position;
     Physics::Vector move;
-};
-
-class Court{
-public:
-    /* Center court position (y = 0) */
-    Physics::Vector getCenter();
-
-    double height;
-    double length;
-    double width;
 };
 
 class Camera{
@@ -234,136 +392,10 @@ void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & 
     al_compose_transform(transform, &tmp);
 }
 
-class Triangle{
-public:
-    Triangle(const Physics::Vector & point1, const Physics::Vector & point2, const Physics::Vector & point3):
-    point1(point1),
-    point2(point2),
-    point3(point3){
-    }
-
-    std::vector<Triangle> subdivide(double radius) const {
-        std::vector<Triangle> out;
-
-        Physics::Vector mid12 = ((point1 + point2) / 2).normalize() * radius;
-        Physics::Vector mid23 = ((point2 + point3) / 2).normalize() * radius;
-        Physics::Vector mid13 = ((point1 + point3) / 2).normalize() * radius;
-
-        out.push_back(Triangle(point1, mid12, mid13));
-        out.push_back(Triangle(mid12, point2, mid23));
-        out.push_back(Triangle(mid12, mid23, mid13));
-        out.push_back(Triangle(mid13, mid23, point3));
-
-        return out;
-    }
-
-    void setup_vertex(ALLEGRO_VERTEX * vertex, const Physics::Vector & point) const {
-        vertex->x = point.getX();
-        vertex->y = point.getY();
-        vertex->z = point.getZ();
-        vertex->u = 0;
-        vertex->v = 0;
-    }
-
-    void draw(const ALLEGRO_COLOR & color) const {
-        ALLEGRO_VERTEX points[3];
-        setup_vertex(&points[0], point1);
-        setup_vertex(&points[1], point2);
-        setup_vertex(&points[2], point3);
-
-        for (int i = 0; i < 3; i++){
-            points[i].color = color;
-        }
-
-        al_draw_prim(points, NULL, NULL, 0, 4, ALLEGRO_PRIM_TRIANGLE_FAN);
-        for (int i = 0; i < 3; i++){
-            points[i].color = al_map_rgb_f(0, 0, 0);
-        }
-        al_draw_prim(points, NULL, NULL, 0, 4, ALLEGRO_PRIM_LINE_LOOP);
-    }
-
-    Physics::Vector point1, point2, point3;
-};
-
-class Translation{
-public:
-    Translation(double x, double y, double z){
-        ALLEGRO_TRANSFORM transform;
-        al_identity_transform(&transform);
-        al_translate_transform_3d(&transform, x, y, z);
-        const ALLEGRO_TRANSFORM * current = al_get_current_transform();
-        al_copy_transform(&save, current);
-        al_compose_transform(&transform, current);
-        al_use_transform(&transform);
-    }
-
-    ~Translation(){
-        al_use_transform(&save);
-    }
-
-    ALLEGRO_TRANSFORM save;
-};
-
-class Sphere{
-public:
-    Sphere(double radius, int level){
-        std::vector<Triangle> octohedron = initialOctohedron(radius);
-        triangles = generate(octohedron, radius, level);
-    }
-
-    std::vector<Triangle> triangles;
-
-    std::vector<Triangle> initialOctohedron(double radius){
-        std::vector<Triangle> out;
-
-        Physics::Vector xplus(1 * radius, 0, 0);
-        Physics::Vector xminus(-1 * radius, 0, 0);
-        Physics::Vector yplus(0, 1 * radius, 0);
-        Physics::Vector yminus(0, -1 * radius, 0);
-        Physics::Vector zplus(0, 0, 1 * radius);
-        Physics::Vector zminus(0, 0, -1 * radius);
-        
-        out.push_back(Triangle(xplus, zplus, yplus));
-        out.push_back(Triangle(yplus, zplus, xminus));
-        out.push_back(Triangle(xminus, zplus, yminus));
-        out.push_back(Triangle(yminus, zplus, xplus));
-        out.push_back(Triangle(xplus, yplus, zminus));
-        out.push_back(Triangle(yplus, xminus, zminus));
-        out.push_back(Triangle(xminus, yminus, zminus));
-        out.push_back(Triangle(yminus, xplus, zminus));
-
-        return out;
-    }
-
-    std::vector<Triangle> generate(const std::vector<Triangle> & in, double radius, int level){
-        if (level == 0){
-            return in;
-        }
-
-        std::vector<Triangle> out;
-
-        for (std::vector<Triangle>::const_iterator it = in.begin(); it != in.end(); it++){
-            const Triangle & original = *it;
-            std::vector<Triangle> more = original.subdivide(radius);
-            out.insert(out.end(), more.begin(), more.end());
-        }
-
-        return generate(out, radius, level - 1);
-    }
-
-    void draw(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        Translation translate(x, y, z);
-
-        for (std::vector<Triangle>::const_iterator it = triangles.begin(); it != triangles.end(); it++){
-            const Triangle & triangle = *it;
-            triangle.draw(color);
-        }
-    }
-};
-
 class Cube{
 public:
-    Cube(int size){
+    Cube(int size):
+    size(size){
         points[0].x = -size / 2;
         points[0].y = -size / 2;
         points[0].z = -size / 2;
@@ -402,7 +434,21 @@ public:
         }
     }
 
-    void draw(double x, double y, double z, const ALLEGRO_COLOR & color, int * indicies){
+    int size;
+
+    double getWidth() const {
+        return size;
+    }
+
+    double getHeight() const {
+        return size;
+    }
+
+    double getLength() const {
+        return size;
+    }
+
+    void draw(double x, double y, double z, const ALLEGRO_COLOR & color, int * indicies) const {
         ALLEGRO_TRANSFORM transform;
         al_identity_transform(&transform);
         al_translate_transform_3d(&transform, x, y, z);
@@ -424,37 +470,37 @@ public:
         al_use_transform(&save);
     }
 
-    void drawLeft(double x, double y, double z, const ALLEGRO_COLOR & color){
+    void drawLeft(double x, double y, double z, const ALLEGRO_COLOR & color) const {
         int indicies[4] = {0, 2, 6, 4};
         draw(x, y, z, color, indicies);
     }
 
-    void drawRight(double x, double y, double z, const ALLEGRO_COLOR & color){
+    void drawRight(double x, double y, double z, const ALLEGRO_COLOR & color) const {
         int indicies[4] = {1, 3, 7, 5};
         draw(x, y, z, color, indicies);
     }
     
-    void drawTop(double x, double y, double z, const ALLEGRO_COLOR & color){
+    void drawTop(double x, double y, double z, const ALLEGRO_COLOR & color) const {
         int indicies[4] = {0, 1, 3, 2};
         draw(x, y, z, color, indicies);
     }
     
-    void drawBottom(double x, double y, double z, const ALLEGRO_COLOR & color){
+    void drawBottom(double x, double y, double z, const ALLEGRO_COLOR & color) const {
         int indicies[4] = {4, 5, 7, 6};
         draw(x, y, z, color, indicies);
     }
     
-    void drawBack(double x, double y, double z, const ALLEGRO_COLOR & color){
+    void drawBack(double x, double y, double z, const ALLEGRO_COLOR & color) const {
         int indicies[4] = {0, 1, 5, 4};
         draw(x, y, z, color, indicies);
     }
     
-    void drawFront(double x, double y, double z, const ALLEGRO_COLOR & color){
+    void drawFront(double x, double y, double z, const ALLEGRO_COLOR & color) const {
         int indicies[4] = {2, 3, 7, 6};
         draw(x, y, z, color, indicies);
     }
 
-    void draw(double x, double y, double z, const ALLEGRO_COLOR & color){
+    void draw(double x, double y, double z, const ALLEGRO_COLOR & color) const {
         drawLeft(x, y, z, color);
         drawRight(x, y, z, color);
         drawTop(x, y, z, color);
@@ -463,7 +509,55 @@ public:
         drawBack(x, y, z, color);
     }
 
-    ALLEGRO_VERTEX points[8];
+    mutable ALLEGRO_VERTEX points[8];
+};
+
+class Court{
+public:
+    Court():
+    court(1000),
+    ball(Physics::Vector(0, 0, 0)){
+        ball.setVelocity(Physics::Vector(1, 0.8, 2).normalize());
+    }
+
+    Cube court;
+
+    double height;
+    double length;
+    double width;
+
+    Ball ball;
+
+    bool outOfBounds(const Physics::Vector & position){
+        return position.getX() < -court.getWidth() / 2 ||
+               position.getX() > court.getWidth() / 2 ||
+               position.getY() < -court.getHeight() / 2 ||
+               position.getY() > court.getHeight() / 2 ||
+               position.getZ() < -court.getLength() / 2 ||
+               position.getZ() > court.getLength() / 2;
+    }
+
+    void logic(){
+        ball.move();
+        if (outOfBounds(ball.getPosition())){
+            ball.setVelocity(-ball.getVelocity());
+        }
+    }
+
+    void draw(double x, double y, double z) const {
+        court.drawLeft(x, y, z, al_map_rgb_f(0.5, 0.5, 0.5));
+        court.drawRight(x, y, z, al_map_rgb_f(0.5, 0.5, 0.5));
+        court.drawTop(x, y, z, al_map_rgb_f(1, 1, 0));
+        court.drawFront(x, y, z, al_map_rgb_f(1, 1, 1));
+        court.drawBack(x, y, z, al_map_rgb_f(1, 0, 0));
+        court.drawBottom(x, y, z, al_map_rgb_f(0.8, 0.8, 0));
+        ball.draw(x, y, z);
+    }
+
+    /* Center court position (y = 0) */
+    Physics::Vector getCenter(){
+        return Physics::Vector(0, 0, 0);
+    }
 };
 
 static void setup_draw_transform(const Camera & camera){
@@ -521,7 +615,7 @@ static void setup_draw_transform(const Camera & camera){
     al_set_projection_transform(display, &transform);
 }
 
-void draw(const Camera & camera){
+void draw(const Court & court, const Camera & camera){
     al_clear_to_color(al_map_rgb_f(0, 0, 0));
     al_clear_depth_buffer(1);
 
@@ -529,17 +623,23 @@ void draw(const Camera & camera){
 
     al_set_blender(ALLEGRO_ADD, ALLEGRO_ALPHA, ALLEGRO_INVERSE_ALPHA);
 
-    Cube cube(500);
+    court.draw(0, 0, 0);
 
-    cube.drawLeft(0, 0, 0, al_map_rgba_f(1, 0.8, 0.3, 0.8));
-    cube.drawRight(0, 0, 0, al_map_rgba_f(0.8, 1, 0.8, 0.8));
-    cube.drawTop(0, 0, 0, al_map_rgba_f(1, 0.8, 1, 0.8));
-    cube.drawBottom(0, 0, 0, al_map_rgba_f(0.3, 0.5, 0.8, 0.8));
-    cube.drawBack(0, 0, 0, al_map_rgba_f(0.7, 0.4, 0.8, 0.8));
-    cube.drawFront(0, 0, 0, al_map_rgba_f(0.2, 0.9, 0.5, 0.8));
+    /*
+    Cube cube(1000);
 
+    cube.drawLeft(0, 0, 0, al_map_rgb_f(1, 0.8, 0.3));
+    cube.drawRight(0, 0, 0, al_map_rgb_f(0.8, 1, 0.8));
+    cube.drawTop(0, 0, 0, al_map_rgb_f(1, 0.8, 1));
+    cube.drawBottom(0, 0, 0, al_map_rgb_f(0.3, 0.5, 0.8));
+    cube.drawBack(0, 0, 0, al_map_rgb_f(0.7, 0.4, 0.8));
+    cube.drawFront(0, 0, 0, al_map_rgb_f(0.2, 0.9, 0.5));
+    */
+
+    /*
     cube.draw(-600, 0, 0, al_map_rgb_f(1, 1, 1));
     cube.draw(600, 0, 0, al_map_rgb_f(1, 1, 1));
+    */
     
     /*
     double radius = 20;
@@ -558,6 +658,7 @@ void draw(const Camera & camera){
         }
     }
     */
+    /*
     Sphere sphere(40, 0);
     sphere.draw(0, 0, 0, al_map_rgb_f(1, 0, 0));
     
@@ -572,6 +673,7 @@ void draw(const Camera & camera){
     
     Sphere sphere4(40, 4);
     sphere4.draw(400, 0, 0, al_map_rgb_f(1, 1, 1));
+    */
 
     al_flip_display();
 }
@@ -634,6 +736,8 @@ int main(){
     camera.move(Physics::Vector(0, 0, 200));
     al_start_timer(timer);
 
+    Racquetball::Court court;
+
     struct Hold{
         Hold():
         left(false),
@@ -668,12 +772,15 @@ int main(){
                         camera.move(camera.getLookPerpendicular() * -speed);
                     }
 
+                    court.logic();
+
                     draw = true;
                     break;
                 }
                 case ALLEGRO_EVENT_MOUSE_AXES: {
                     camera.changeLook(event.mouse.dx, event.mouse.dy);
                     // camera.getLook().debug();
+                    /* Recenter mouse so we can get more delta mouse movements */
                     al_set_mouse_xy(display, al_get_display_width(display) / 2, al_get_display_height(display) / 2);
                     break;
                 }
@@ -722,19 +829,11 @@ int main(){
         }
 
         if (draw){
-            Racquetball::draw(camera);
+            Racquetball::draw(court, camera);
         } else {
             al_rest(0.001);
         }
     }
-
-    /*
-    for (int i = 0; i < 80; i++){
-        Racquetball::draw(camera);
-        camera.move(Physics::Vector(0, 0, -0.5));
-        al_rest(0.1);
-    }
-    */
 
     al_ungrab_mouse();
     al_destroy_display(display);
