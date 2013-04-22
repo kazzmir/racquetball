@@ -261,7 +261,7 @@ public:
 
     void move(){
         position += velocity;
-        velocity += Physics::gravity;
+        velocity -= Physics::gravity;
     }
 
     const Physics::Vector & getPosition() const {
@@ -365,7 +365,7 @@ public:
         if (lookTheta > 360){
             lookTheta -= 360;
         }
-        lookPhi -= y / sensitivity;
+        lookPhi += y / sensitivity;
         if (lookPhi > 90){
             lookPhi = 90;
         }
@@ -513,12 +513,12 @@ public:
     }
     
     void drawTop(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {0, 1, 3, 2};
+        int indicies[4] = {4, 5, 7, 6};
         draw(x, y, z, color, indicies);
     }
     
     void drawBottom(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {4, 5, 7, 6};
+        int indicies[4] = {0, 1, 3, 2};
         draw(x, y, z, color, indicies);
     }
     
@@ -573,9 +573,9 @@ public:
         ball.move();
         if (outOfBounds(ball.getPosition())){
             Physics::Vector next = -ball.getVelocity();
-            if (ball.getPosition().getY() > court.getHeight() / 2){
+            if (ball.getPosition().getY() < -court.getHeight() / 2){
                 Physics::Vector where = ball.getPosition();
-                where.setY(court.getHeight() / 2 - ball.getSize());
+                where.setY(-court.getHeight() / 2 + ball.getSize());
                 ball.setPosition(where);
                 next = next / 2;
             }
@@ -592,7 +592,7 @@ public:
     }
 
     void hit(){
-        ball.setVelocity(Physics::Vector(randomFloat(-5, 5) * 3, -randomFloat(10) - 10, randomFloat(-5, 5) * 3));
+        ball.setVelocity(Physics::Vector(randomFloat(-5, 5) * 3, randomFloat(10) + 10, -20));
     }
 
     void draw(double x, double y, double z) const {
@@ -641,8 +641,8 @@ static void setup_draw_transform(const Camera & camera){
 
     float left = -distance / 2 * aspect;
     float right = distance / 2 * aspect;
-    float top = -distance / 2;
-    float bottom = distance / 2;
+    float top = distance / 2;
+    float bottom = -distance / 2;
 
     /*
     std::cout << "Fovy: " << fovy << std::endl;
