@@ -466,9 +466,7 @@ public:
     ALLEGRO_VERTEX points[8];
 };
 
-void draw(const Camera & camera){
-    al_clear_to_color(al_map_rgb_f(0, 0, 0));
-    al_clear_depth_buffer(1);
+static void setup_draw_transform(const Camera & camera){
     ALLEGRO_TRANSFORM transform;
     al_identity_transform(&transform);
     al_translate_transform_3d(&transform, -camera.positionX(), -camera.positionY(), -camera.positionZ());
@@ -521,6 +519,13 @@ void draw(const Camera & camera){
     // al_perspective_transform(&transform, -1, -1, 5, 1, 1, far);
 
     al_set_projection_transform(display, &transform);
+}
+
+void draw(const Camera & camera){
+    al_clear_to_color(al_map_rgb_f(0, 0, 0));
+    al_clear_depth_buffer(1);
+
+    setup_draw_transform(camera);
 
     al_set_blender(ALLEGRO_ADD, ALLEGRO_ALPHA, ALLEGRO_INVERSE_ALPHA);
 
@@ -573,25 +578,51 @@ void draw(const Camera & camera){
 
 }
 
-int main(){
+static bool init_allegro(){
     if (ALLEGRO_VERSION_INT != al_get_allegro_version()){
         std::cout << "Wrong Allegro5 version. Compiled with " << ALLEGRO_VERSION_INT << " but running with " << al_get_allegro_version() << std::endl;
+        return false;
     }
     if (!al_init()){
         std::cout << "Could not initialize Allegro5" << std::endl;
-        return -1;
+        return false;
     }
-    al_install_keyboard();
-    al_install_mouse();
-    al_init_primitives_addon();
-    al_set_new_display_flags(ALLEGRO_WINDOWED);
+    if (!al_install_keyboard()){
+        std::cout << "Could not initialize keyboard" << std::endl;
+        return false;
+    }
+    if (!al_install_mouse()){
+        std::cout << "Could not initialize mouse" << std::endl;
+        return false;
+    }
+    if (!al_init_primitives_addon()){
+        std::cout << "Could not initialize primitives addon" << std::endl;
+        return false;
+    }
 
-    ALLEGRO_TIMER * timer = al_create_timer(ALLEGRO_BPS_TO_SECS(60));
+    return true;
+}
+
+ALLEGRO_DISPLAY * setup_display(int width, int height){
+    al_set_new_display_flags(ALLEGRO_WINDOWED);
     al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 24, ALLEGRO_REQUIRE);
-    ALLEGRO_DISPLAY * display = al_create_display(800, 600);
+    ALLEGRO_DISPLAY * display = al_create_display(width, height);
+    /* Enable the depth buffer */
     al_set_render_state(ALLEGRO_DEPTH_TEST, 1);
     al_set_render_state(ALLEGRO_DEPTH_FUNCTION, ALLEGRO_RENDER_LESS);
+    return display;
+}
+
+int main(){
+    if (!init_allegro()){
+        return 1;
+    }
+
+    ALLEGRO_DISPLAY * display = setup_display(800, 600);
+
     ALLEGRO_EVENT_QUEUE * queue = al_create_event_queue();
+
+    ALLEGRO_TIMER * timer = al_create_timer(ALLEGRO_BPS_TO_SECS(60));
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_timer_event_source(timer));
@@ -603,14 +634,40 @@ int main(){
     camera.move(Physics::Vector(0, 0, 200));
     al_start_timer(timer);
 
+    struct Hold{
+        Hold():
+        left(false),
+        right(false),
+        up(false),
+        down(false){
+        }
+
+        bool left, right, up, down;
+    };
+
+    Hold hold;
+
     ALLEGRO_EVENT event;
     bool done = false;
-    double speed = 5;
+    double speed = 3;
     while (!done){
         bool draw = false;
         while (al_get_next_event(queue, &event)){
             switch (event.type){
                 case ALLEGRO_EVENT_TIMER: {
+                    if (hold.up){
+                        camera.move(camera.getLook() * speed);
+                    }
+                    if (hold.down){
+                        camera.move(camera.getLook() * -speed);
+                    }
+                    if (hold.left){
+                        camera.move(camera.getLookPerpendicular() * speed);
+                    }
+                    if (hold.right){
+                        camera.move(camera.getLookPerpendicular() * -speed);
+                    }
+
                     draw = true;
                     break;
                 }
@@ -620,28 +677,29 @@ int main(){
                     al_set_mouse_xy(display, al_get_display_width(display) / 2, al_get_display_height(display) / 2);
                     break;
                 }
-                case ALLEGRO_EVENT_KEY_CHAR: {
+                case ALLEGRO_EVENT_KEY_DOWN:
+                case ALLEGRO_EVENT_KEY_UP: {
+                    bool pressed = event.type == ALLEGRO_EVENT_KEY_DOWN;
+
                     switch (event.keyboard.keycode){
                         case ALLEGRO_KEY_W:
                         case ALLEGRO_KEY_UP: {
-                            // camera.move(Physics::Vector(0, 0, -speed));
-                            camera.move(camera.getLook() * speed);
+                            hold.up = pressed;
                             break;
                         }
                         case ALLEGRO_KEY_X:
                         case ALLEGRO_KEY_DOWN: {
-                            // camera.move(Physics::Vector(0, 0, speed));
-                            camera.move(camera.getLook() * -speed);
+                            hold.down = pressed;
                             break;
                         }
                         case ALLEGRO_KEY_A:
                         case ALLEGRO_KEY_LEFT: {
-                            camera.move(camera.getLookPerpendicular() * speed);
+                            hold.left = pressed;
                             break;
                         }
                         case ALLEGRO_KEY_D:
                         case ALLEGRO_KEY_RIGHT: {
-                            camera.move(camera.getLookPerpendicular() * -speed);
+                            hold.right = pressed;
                             break;
                         }
                         /*
@@ -656,7 +714,6 @@ int main(){
                         */
                         case ALLEGRO_KEY_ESCAPE: done = true; break;
                     }
-                    camera.getPosition().debug();
                     break;
                 }
             }
