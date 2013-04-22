@@ -29,6 +29,10 @@ public:
         return Vector(x * magnitude, y * magnitude, z * magnitude);
     }
 
+    Vector operator*(const Vector & what) const {
+        return Vector(x * what.x, y * what.y, z * what.z);
+    }
+
     Vector operator/(const double magnitude) const {
         return *this * (1 / magnitude);
     }
@@ -571,6 +575,52 @@ public:
 
     void logic(){
         ball.move();
+
+        double friction = 0.8;
+
+        if (ball.getPosition().getX() - ball.getSize() < -court.getWidth() / 2){
+            Physics::Vector where = ball.getPosition();
+            where.setX(-court.getWidth() / 2 + ball.getSize());
+            ball.setPosition(where);
+            ball.setVelocity(ball.getVelocity() * Physics::Vector(-1, 1, 1) * friction);
+        }
+
+        if (ball.getPosition().getX() + ball.getSize() > court.getWidth() / 2){
+            Physics::Vector where = ball.getPosition();
+            where.setX(court.getWidth() / 2 - ball.getSize());
+            ball.setPosition(where);
+            ball.setVelocity(ball.getVelocity() * Physics::Vector(-1, 1, 1) * friction);
+        }
+
+        if (ball.getPosition().getZ() - ball.getSize() < -court.getLength() / 2){
+            Physics::Vector where = ball.getPosition();
+            where.setZ(-court.getLength() / 2 + ball.getSize());
+            ball.setPosition(where);
+            ball.setVelocity(ball.getVelocity() * Physics::Vector(1, 1, -1) * friction);
+        }
+
+        if (ball.getPosition().getZ() + ball.getSize() > court.getLength() / 2){
+            Physics::Vector where = ball.getPosition();
+            where.setZ(court.getLength() / 2 - ball.getSize());
+            ball.setPosition(where);
+            ball.setVelocity(ball.getVelocity() * Physics::Vector(1, 1, -1) * friction);
+        }
+
+        if (ball.getPosition().getY() - ball.getSize() < -court.getHeight() / 2){
+            Physics::Vector where = ball.getPosition();
+            where.setY(-court.getHeight() / 2 + ball.getSize());
+            ball.setPosition(where);
+            ball.setVelocity(ball.getVelocity() * Physics::Vector(1, -1, 1) * friction);
+        }
+
+        if (ball.getPosition().getY() + ball.getSize() > court.getHeight() / 2){
+            Physics::Vector where = ball.getPosition();
+            where.setY(court.getHeight() / 2 - ball.getSize());
+            ball.setPosition(where);
+            ball.setVelocity(ball.getVelocity() * Physics::Vector(1, -1, 1) * friction);
+        }
+
+        /*
         if (outOfBounds(ball.getPosition())){
             Physics::Vector next = -ball.getVelocity();
             if (ball.getPosition().getY() < -court.getHeight() / 2){
@@ -581,6 +631,7 @@ public:
             }
             ball.setVelocity(next);
         }
+        */
     }
 
     double randomFloat(double what){
@@ -849,7 +900,9 @@ int main(){
 
                     switch (event.keyboard.keycode){
                         case ALLEGRO_KEY_SPACE: {
-                            hit = true;
+                            if (pressed){
+                                hit = true;
+                            }
                             break;
                         }
                         case ALLEGRO_KEY_W:
