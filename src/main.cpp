@@ -296,6 +296,126 @@ public:
     Sphere model;
 };
 
+class Cube{
+public:
+    Cube(int size):
+    size(size){
+        points[0].x = -size / 2;
+        points[0].y = -size / 2;
+        points[0].z = -size / 2;
+
+        points[1].x = size / 2;
+        points[1].y = -size / 2;
+        points[1].z = -size / 2;
+
+        points[2].x = -size / 2;
+        points[2].y = -size / 2;
+        points[2].z = size / 2;
+
+        points[3].x = size / 2;
+        points[3].y = -size / 2;
+        points[3].z = size / 2;
+
+        points[4].x = -size / 2;
+        points[4].y = size / 2;
+        points[4].z = -size / 2;
+
+        points[5].x = size / 2;
+        points[5].y = size / 2;
+        points[5].z = -size / 2;
+
+        points[6].x = -size / 2;
+        points[6].y = size / 2;
+        points[6].z = size / 2;
+
+        points[7].x = size / 2;
+        points[7].y = size / 2;
+        points[7].z = size / 2;
+
+        for (int i = 0; i < 8; i++){
+            points[i].u = 0;
+            points[i].v = 0;
+        }
+    }
+
+    int size;
+
+    double getWidth() const {
+        return size;
+    }
+
+    double getHeight() const {
+        return size;
+    }
+
+    double getLength() const {
+        return size;
+    }
+
+    void draw(double x, double y, double z, const ALLEGRO_COLOR & color, int * indicies) const {
+        ALLEGRO_TRANSFORM transform;
+        al_identity_transform(&transform);
+        al_translate_transform_3d(&transform, x, y, z);
+        const ALLEGRO_TRANSFORM * current = al_get_current_transform();
+        ALLEGRO_TRANSFORM save;
+        al_copy_transform(&save, current);
+        al_compose_transform(&transform, current);
+        al_use_transform(&transform);
+
+        for (int i = 0; i < 4; i++){
+            points[indicies[i]].color = color;
+        }
+
+        al_draw_indexed_prim(points, NULL, NULL, indicies, 4, ALLEGRO_PRIM_TRIANGLE_FAN);
+        for (int i = 0; i < 4; i++){
+            points[indicies[i]].color = al_map_rgb_f(0, 0, 0);
+        }
+        al_draw_indexed_prim(points, NULL, NULL, indicies, 4, ALLEGRO_PRIM_LINE_LOOP);
+        al_use_transform(&save);
+    }
+
+    void drawLeft(double x, double y, double z, const ALLEGRO_COLOR & color) const {
+        int indicies[4] = {0, 2, 6, 4};
+        draw(x, y, z, color, indicies);
+    }
+
+    void drawRight(double x, double y, double z, const ALLEGRO_COLOR & color) const {
+        int indicies[4] = {1, 3, 7, 5};
+        draw(x, y, z, color, indicies);
+    }
+    
+    void drawTop(double x, double y, double z, const ALLEGRO_COLOR & color) const {
+        int indicies[4] = {4, 5, 7, 6};
+        draw(x, y, z, color, indicies);
+    }
+    
+    void drawBottom(double x, double y, double z, const ALLEGRO_COLOR & color) const {
+        int indicies[4] = {0, 1, 3, 2};
+        draw(x, y, z, color, indicies);
+    }
+    
+    void drawBack(double x, double y, double z, const ALLEGRO_COLOR & color) const {
+        int indicies[4] = {0, 1, 5, 4};
+        draw(x, y, z, color, indicies);
+    }
+    
+    void drawFront(double x, double y, double z, const ALLEGRO_COLOR & color) const {
+        int indicies[4] = {2, 3, 7, 6};
+        draw(x, y, z, color, indicies);
+    }
+
+    void draw(double x, double y, double z, const ALLEGRO_COLOR & color) const {
+        drawLeft(x, y, z, color);
+        drawRight(x, y, z, color);
+        drawTop(x, y, z, color);
+        drawBottom(x, y, z, color);
+        drawFront(x, y, z, color);
+        drawBack(x, y, z, color);
+    }
+
+    mutable ALLEGRO_VERTEX points[8];
+};
+
 class Behavior{
 public:
 };
@@ -303,12 +423,35 @@ public:
 class Player{
 public:
     Player(const Physics::Vector & position):
+    speed(5),
     position(position),
-    move(0, 0, 0){
+    move(0, 0, 0),
+    model(10){
+    }
+
+    void moveLeft(){
+        position += Physics::Vector(-speed, 0, 0);
+    }
+
+    void moveRight(){
+        position += Physics::Vector(speed, 0, 0);
+    }
+
+    void moveForward(){
+        position += Physics::Vector(0, 0, -speed);
+    }
+
+    void moveBackward(){
+        position += Physics::Vector(0, 0, speed);
     }
 
     const Physics::Vector & getPosition() const {
         return position;
+    }
+
+    void draw(double x, double y, double z) const {
+        Translation translate(x, y, z);
+        model.draw(position.getX(), position.getY(), position.getZ(), al_map_rgb_f(1, 1, 1));
     }
 
     /* How fast the player can move */
@@ -323,6 +466,7 @@ public:
     Util::ReferenceCount<Behavior> behavior;
     Physics::Vector position;
     Physics::Vector move;
+    Cube model;
 };
 
 class Camera{
@@ -484,133 +628,13 @@ void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & 
     al_compose_transform(transform, &tmp);
 }
 
-class Cube{
-public:
-    Cube(int size):
-    size(size){
-        points[0].x = -size / 2;
-        points[0].y = -size / 2;
-        points[0].z = -size / 2;
-
-        points[1].x = size / 2;
-        points[1].y = -size / 2;
-        points[1].z = -size / 2;
-
-        points[2].x = -size / 2;
-        points[2].y = -size / 2;
-        points[2].z = size / 2;
-
-        points[3].x = size / 2;
-        points[3].y = -size / 2;
-        points[3].z = size / 2;
-
-        points[4].x = -size / 2;
-        points[4].y = size / 2;
-        points[4].z = -size / 2;
-
-        points[5].x = size / 2;
-        points[5].y = size / 2;
-        points[5].z = -size / 2;
-
-        points[6].x = -size / 2;
-        points[6].y = size / 2;
-        points[6].z = size / 2;
-
-        points[7].x = size / 2;
-        points[7].y = size / 2;
-        points[7].z = size / 2;
-
-        for (int i = 0; i < 8; i++){
-            points[i].u = 0;
-            points[i].v = 0;
-        }
-    }
-
-    int size;
-
-    double getWidth() const {
-        return size;
-    }
-
-    double getHeight() const {
-        return size;
-    }
-
-    double getLength() const {
-        return size;
-    }
-
-    void draw(double x, double y, double z, const ALLEGRO_COLOR & color, int * indicies) const {
-        ALLEGRO_TRANSFORM transform;
-        al_identity_transform(&transform);
-        al_translate_transform_3d(&transform, x, y, z);
-        const ALLEGRO_TRANSFORM * current = al_get_current_transform();
-        ALLEGRO_TRANSFORM save;
-        al_copy_transform(&save, current);
-        al_compose_transform(&transform, current);
-        al_use_transform(&transform);
-
-        for (int i = 0; i < 4; i++){
-            points[indicies[i]].color = color;
-        }
-
-        al_draw_indexed_prim(points, NULL, NULL, indicies, 4, ALLEGRO_PRIM_TRIANGLE_FAN);
-        for (int i = 0; i < 4; i++){
-            points[indicies[i]].color = al_map_rgb_f(0, 0, 0);
-        }
-        al_draw_indexed_prim(points, NULL, NULL, indicies, 4, ALLEGRO_PRIM_LINE_LOOP);
-        al_use_transform(&save);
-    }
-
-    void drawLeft(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {0, 2, 6, 4};
-        draw(x, y, z, color, indicies);
-    }
-
-    void drawRight(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {1, 3, 7, 5};
-        draw(x, y, z, color, indicies);
-    }
-    
-    void drawTop(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {4, 5, 7, 6};
-        draw(x, y, z, color, indicies);
-    }
-    
-    void drawBottom(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {0, 1, 3, 2};
-        draw(x, y, z, color, indicies);
-    }
-    
-    void drawBack(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {0, 1, 5, 4};
-        draw(x, y, z, color, indicies);
-    }
-    
-    void drawFront(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {2, 3, 7, 6};
-        draw(x, y, z, color, indicies);
-    }
-
-    void draw(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        drawLeft(x, y, z, color);
-        drawRight(x, y, z, color);
-        drawTop(x, y, z, color);
-        drawBottom(x, y, z, color);
-        drawFront(x, y, z, color);
-        drawBack(x, y, z, color);
-    }
-
-    mutable ALLEGRO_VERTEX points[8];
-};
-
 class Court{
 public:
     Court():
     court(1000),
     ball(Physics::Vector(0, 50, 0)),
     player(Physics::Vector(-100, -court.getHeight() / 2 + 200, -100)){
-        ball.setVelocity(Physics::Vector(1, 0.8, 2).normalize());
+        ball.setVelocity(Physics::Vector(0, 0, 0));
     }
 
     Cube court;
@@ -621,6 +645,10 @@ public:
 
     Ball ball;
     Player player;
+
+    Player & getPlayer(){
+        return player;
+    }
 
     const Player & getPlayer() const {
         return player;
@@ -720,6 +748,7 @@ public:
         court.drawBack(x, y, z, al_map_rgb_f(1, 0, 0));
         court.drawBottom(x, y, z, al_map_rgb_f(0.8, 0.8, 0));
         ball.draw(x, y, z);
+        player.draw(x, y, z);
     }
 
     /* Center court position (y = 0) */
@@ -785,10 +814,11 @@ static void setup_draw_transform(const Camera & camera){
 }
 
 StationaryCamera computeStationaryCamera(const Ball & ball, const Player & player){
-    Physics::Vector direction = player.getPosition() - ball.getPosition();
+    Physics::Vector direction = (player.getPosition() - ball.getPosition()).normalize();
 
-    Physics::Vector position = player.getPosition() - direction.normalize() * 4;
-    Physics::Vector look = (ball.getPosition() - player.getPosition()).normalize();
+    Physics::Vector position = player.getPosition() + direction * 15 + Physics::Vector(0, 10, 0);
+    Physics::Vector look = (-(position - ball.getPosition())).normalize();
+    // Physics::Vector look = (player.getPosition() - ball.getPosition()).normalize();
     return StationaryCamera(position, look);
 }
 
@@ -942,16 +972,21 @@ int main(){
         while (al_get_next_event(queue, &event)){
             switch (event.type){
                 case ALLEGRO_EVENT_TIMER: {
+                    Racquetball::Player & player = court.getPlayer();
                     if (hold.up){
+                        player.moveForward();
                         camera.move(camera.getLook() * speed);
                     }
                     if (hold.down){
+                        player.moveBackward();
                         camera.move(camera.getLook() * -speed);
                     }
                     if (hold.left){
+                        player.moveLeft();
                         camera.move(camera.getLookPerpendicular() * speed);
                     }
                     if (hold.right){
+                        player.moveRight();
                         camera.move(camera.getLookPerpendicular() * -speed);
                     }
 
