@@ -282,7 +282,7 @@ public:
 
     void draw(double x, double y, double z) const {
         Translation translate(x, y, z);
-        model.draw(position.getX(), position.getY(), position.getZ(), al_map_rgb_f(1, 1, 1));
+        model.draw(position.getX(), position.getY(), position.getZ(), al_map_rgb_f(0.3, 0.2, 1));
     }
 
     /* Sort of models different ball types.
@@ -302,6 +302,15 @@ public:
 
 class Player{
 public:
+    Player(const Physics::Vector & position):
+    position(position),
+    move(0, 0, 0){
+    }
+
+    const Physics::Vector & getPosition() const {
+        return position;
+    }
+
     /* How fast the player can move */
     double speed;
 
@@ -318,12 +327,69 @@ public:
 
 class Camera{
 public:
-    Camera():
+    Camera(){
+    }
+
+    virtual ~Camera(){
+    }
+
+    virtual double positionX() const = 0;
+    virtual double positionY() const = 0;
+    virtual double positionZ() const = 0;
+
+    virtual const Physics::Vector & getPosition() const = 0;
+    virtual const Physics::Vector getLook() const = 0;
+};
+
+class StationaryCamera: public Camera {
+public:
+    StationaryCamera(const Physics::Vector & position, const Physics::Vector & look):
+    position(position),
+    look(look){
+    }
+
+    const Physics::Vector position;
+    const Physics::Vector look;
+
+    double positionX() const {
+        return position.getX();
+    }
+
+    double positionY() const {
+        return position.getY();
+    }
+
+    double positionZ() const {
+        return position.getZ();
+    }
+
+    const Physics::Vector & getPosition() const {
+        return position;
+    }
+
+    const Physics::Vector getLook() const {
+        return look;
+    }
+};
+
+class FreeCamera: public Camera {
+public:
+    FreeCamera():
     position(0, 0, 0),
     velocity(0, 0, 0),
     lookTheta(180),
     lookPhi(0){
     }
+
+    /* position in space */
+    Physics::Vector position;
+    /* velocity */
+    Physics::Vector velocity;
+    /* where the camera is looking */
+    // Physics::Vector look;
+
+    double lookTheta;
+    double lookPhi;
 
     double positionX() const {
         return position.getX();
@@ -383,16 +449,6 @@ public:
     void move(const Physics::Vector & much){
         this->position = this->position + much;
     }
-
-    /* position in space */
-    Physics::Vector position;
-    /* velocity */
-    Physics::Vector velocity;
-    /* where the camera is looking */
-    // Physics::Vector look;
-
-    double lookTheta;
-    double lookPhi;
 };
 
 void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & look, const Physics::Vector & up){
@@ -552,7 +608,8 @@ class Court{
 public:
     Court():
     court(1000),
-    ball(Physics::Vector(0, 50, 0)){
+    ball(Physics::Vector(0, 50, 0)),
+    player(Physics::Vector(-100, -court.getHeight() / 2 + 200, -100)){
         ball.setVelocity(Physics::Vector(1, 0.8, 2).normalize());
     }
 
@@ -563,6 +620,15 @@ public:
     double width;
 
     Ball ball;
+    Player player;
+
+    const Player & getPlayer() const {
+        return player;
+    }
+
+    const Ball & getBall() const {
+        return ball;
+    }
 
     bool outOfBounds(const Physics::Vector & position){
         return position.getX() < -court.getWidth() / 2 ||
@@ -665,6 +731,7 @@ public:
 static void setup_draw_transform(const Camera & camera){
     ALLEGRO_TRANSFORM transform;
     al_identity_transform(&transform);
+
     al_translate_transform_3d(&transform, -camera.positionX(), -camera.positionY(), -camera.positionZ());
     Physics::Vector up(0, 1, 0);
     // Physics::Vector cross = up.cross(camera.getLook()).normalize();
@@ -717,11 +784,22 @@ static void setup_draw_transform(const Camera & camera){
     al_set_projection_transform(display, &transform);
 }
 
+StationaryCamera computeStationaryCamera(const Ball & ball, const Player & player){
+    Physics::Vector direction = player.getPosition() - ball.getPosition();
+
+    Physics::Vector position = player.getPosition() - direction.normalize() * 4;
+    Physics::Vector look = (ball.getPosition() - player.getPosition()).normalize();
+    return StationaryCamera(position, look);
+}
+
 void draw(const Court & court, const Camera & camera){
     al_clear_to_color(al_map_rgb_f(0, 0, 0));
     al_clear_depth_buffer(1);
 
-    setup_draw_transform(camera);
+    StationaryCamera stationary = computeStationaryCamera(court.getBall(), court.getPlayer());
+
+    // setup_draw_transform(camera);
+    setup_draw_transform(stationary);
 
     al_set_blender(ALLEGRO_ADD, ALLEGRO_ALPHA, ALLEGRO_INVERSE_ALPHA);
 
@@ -824,7 +902,7 @@ int main(){
 
     srand(time(NULL));
 
-    ALLEGRO_DISPLAY * display = setup_display(800, 600);
+    ALLEGRO_DISPLAY * display = setup_display(1024, 768);
 
     ALLEGRO_EVENT_QUEUE * queue = al_create_event_queue();
 
@@ -835,7 +913,7 @@ int main(){
 
     al_hide_mouse_cursor(display);
     al_grab_mouse(display);
-    Racquetball::Camera camera;
+    Racquetball::FreeCamera camera;
 
     camera.move(Physics::Vector(0, 0, 200));
     al_start_timer(timer);
