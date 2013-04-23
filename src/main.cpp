@@ -119,7 +119,7 @@ protected:
     double z;
 };
 
-Vector gravity(0, 1, 0);
+Vector gravity(0, 0.7, 0);
 
 }
 
@@ -640,7 +640,7 @@ public:
     Court():
     court(2000),
     ball(Physics::Vector(0, 50, 0)),
-    player(Physics::Vector(-100, -court.getHeight() / 2 + 200, -100)){
+    player(Physics::Vector(-100, -court.getHeight() / 2 + 250, -100)){
         ball.setVelocity(Physics::Vector(0, 0, 0));
     }
 
@@ -828,7 +828,7 @@ StationaryCamera computeStationaryCamera(const Physics::Vector & cameraLook, con
     Physics::Vector look = (-(position - ball.getPosition())).normalize();
     // Physics::Vector look = (player.getPosition() - ball.getPosition()).normalize();
     */
-    Physics::Vector position = player.getPosition() - cameraLook * 15 + Physics::Vector(0, 10, 0);
+    Physics::Vector position = player.getPosition() - cameraLook * 22 + Physics::Vector(0, 10, 0);
     return StationaryCamera(position, cameraLook);
 }
 
@@ -1004,9 +1004,10 @@ int main(){
 
                     if (hold.left_click && court.getPlayer().getPosition().distance(court.getBall().getPosition()) < 300){
                         court.hit();
-                        hold.left_click = false;
                         hit = false;
                     }
+
+                    hold.left_click = false;
 
                     court.logic();
 
