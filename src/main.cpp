@@ -395,12 +395,12 @@ public:
     }
     
     void drawBack(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {0, 1, 5, 4};
+        int indicies[4] = {2, 3, 7, 6};
         draw(x, y, z, color, indicies);
     }
     
     void drawFront(double x, double y, double z, const ALLEGRO_COLOR & color) const {
-        int indicies[4] = {2, 3, 7, 6};
+        int indicies[4] = {0, 1, 5, 4};
         draw(x, y, z, color, indicies);
     }
 
@@ -423,26 +423,26 @@ public:
 class Player{
 public:
     Player(const Physics::Vector & position):
-    speed(5),
+    speed(8),
     position(position),
     move(0, 0, 0),
     model(10){
     }
 
-    void moveLeft(){
-        position += Physics::Vector(-speed, 0, 0);
+    void moveLeft(const Physics::Vector & look){
+        position += Physics::Vector(-look.getZ(), 0, look.getX()) * -speed;
     }
 
-    void moveRight(){
-        position += Physics::Vector(speed, 0, 0);
+    void moveRight(const Physics::Vector & look){
+        position += Physics::Vector(-look.getZ(), 0, look.getX()) * speed;
     }
 
-    void moveForward(){
-        position += Physics::Vector(0, 0, -speed);
+    void moveForward(const Physics::Vector & look){
+        position += Physics::Vector(look.getX(), 0, look.getZ()) * speed;
     }
 
-    void moveBackward(){
-        position += Physics::Vector(0, 0, speed);
+    void moveBackward(const Physics::Vector & look){
+        position += Physics::Vector(look.getX(), 0, look.getZ()) * -speed;
     }
 
     const Physics::Vector & getPosition() const {
@@ -631,7 +631,7 @@ void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & 
 class Court{
 public:
     Court():
-    court(1000),
+    court(2000),
     ball(Physics::Vector(0, 50, 0)),
     player(Physics::Vector(-100, -court.getHeight() / 2 + 200, -100)){
         ball.setVelocity(Physics::Vector(0, 0, 0));
@@ -737,7 +737,7 @@ public:
     }
 
     void hit(){
-        ball.setVelocity(Physics::Vector(randomFloat(-5, 5) * 3, randomFloat(10) + 10, -20));
+        ball.setVelocity(Physics::Vector(randomFloat(-5, 5) * 3, randomFloat(10) + 10, -40));
     }
 
     void draw(double x, double y, double z) const {
@@ -813,20 +813,23 @@ static void setup_draw_transform(const Camera & camera){
     al_set_projection_transform(display, &transform);
 }
 
-StationaryCamera computeStationaryCamera(const Ball & ball, const Player & player){
+StationaryCamera computeStationaryCamera(const Physics::Vector & cameraLook, const Ball & ball, const Player & player){
+    /*
     Physics::Vector direction = (player.getPosition() - ball.getPosition()).normalize();
 
     Physics::Vector position = player.getPosition() + direction * 15 + Physics::Vector(0, 10, 0);
     Physics::Vector look = (-(position - ball.getPosition())).normalize();
     // Physics::Vector look = (player.getPosition() - ball.getPosition()).normalize();
-    return StationaryCamera(position, look);
+    */
+    Physics::Vector position = player.getPosition() - cameraLook * 15 + Physics::Vector(0, 10, 0);
+    return StationaryCamera(position, cameraLook);
 }
 
 void draw(const Court & court, const Camera & camera){
     al_clear_to_color(al_map_rgb_f(0, 0, 0));
     al_clear_depth_buffer(1);
 
-    StationaryCamera stationary = computeStationaryCamera(court.getBall(), court.getPlayer());
+    StationaryCamera stationary = computeStationaryCamera(camera.getLook(), court.getBall(), court.getPlayer());
 
     // setup_draw_transform(camera);
     setup_draw_transform(stationary);
@@ -955,10 +958,12 @@ int main(){
         left(false),
         right(false),
         up(false),
-        down(false){
+        down(false),
+        left_click(false){
         }
 
         bool left, right, up, down;
+        bool left_click;
     };
 
     Hold hold;
@@ -974,30 +979,39 @@ int main(){
                 case ALLEGRO_EVENT_TIMER: {
                     Racquetball::Player & player = court.getPlayer();
                     if (hold.up){
-                        player.moveForward();
+                        player.moveForward(camera.getLook());
                         camera.move(camera.getLook() * speed);
                     }
                     if (hold.down){
-                        player.moveBackward();
+                        player.moveBackward(camera.getLook());
                         camera.move(camera.getLook() * -speed);
                     }
                     if (hold.left){
-                        player.moveLeft();
+                        player.moveLeft(camera.getLook());
                         camera.move(camera.getLookPerpendicular() * speed);
                     }
                     if (hold.right){
-                        player.moveRight();
+                        player.moveRight(camera.getLook());
                         camera.move(camera.getLookPerpendicular() * -speed);
                     }
 
-                    if (hit){
+                    if (hold.left_click){
                         court.hit();
+                        hold.left_click = false;
                         hit = false;
                     }
 
                     court.logic();
 
                     draw = true;
+                    break;
+                }
+                case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
+                case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN: {
+                    bool pressed = event.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN;
+                    if (event.mouse.button == 1){
+                        hold.left_click = pressed;
+                    }
                     break;
                 }
                 case ALLEGRO_EVENT_MOUSE_AXES: {
