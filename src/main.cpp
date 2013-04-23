@@ -87,6 +87,13 @@ public:
         std::cout << "x: " << x << " y: " << y << " z: " << z << std::endl;
     }
 
+    double distance(const Vector & him) const {
+        double xs = x - him.getX();
+        double ys = y - him.getY();
+        double zs = z - him.getZ();
+        return sqrt(xs * xs + ys * ys + zs * zs);
+    }
+
     Vector normalize() const {
         double large = x * x + y * y + z * z;
         if (large == 0){
@@ -423,7 +430,7 @@ public:
 class Player{
 public:
     Player(const Physics::Vector & position):
-    speed(8),
+    speed(15),
     position(position),
     move(0, 0, 0),
     model(10){
@@ -995,7 +1002,7 @@ int main(){
                         camera.move(camera.getLookPerpendicular() * -speed);
                     }
 
-                    if (hold.left_click){
+                    if (hold.left_click && court.getPlayer().getPosition().distance(court.getBall().getPosition()) < 300){
                         court.hit();
                         hold.left_click = false;
                         hit = false;
