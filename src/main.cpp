@@ -259,11 +259,11 @@ public:
     Ball(const Physics::Vector & position):
     position(position),
     velocity(0, 0, 0),
-    model(20, 3){
+    model(10, 3){
     }
 
     double getSize() const {
-        return 20;
+        return 10;
     }
 
     void setPosition(const Physics::Vector & what){
@@ -566,6 +566,24 @@ public:
         double z = cos(r_theta) * cos(r_phi);
         double y = sin(r_phi);
         return Physics::Vector(x, y, z);
+    }
+
+    /* where should be normalized */
+    void lookAt(const Physics::Vector & where){
+        double r_phi = asin(where.getY());
+        double r_theta = asin(where.getX() / cos(r_phi));
+        /* asin only returns a value in -pi/2,pi/2 so we have to move it
+         * to quadrant 2/3
+         */
+        if (where.getZ() < 0){
+            double r180 = ALLEGRO_PI;
+            r_theta = r180 - r_theta;
+        }
+        lookTheta = r_theta * 180.0 / ALLEGRO_PI;
+        lookPhi = r_phi * 180.0 / ALLEGRO_PI;
+        std::cout << "Look at ";
+        where.debug();
+        std::cout << "Theta " << lookTheta << " Phi " << lookPhi << std::endl;
     }
 
     const Physics::Vector getLook() const {
@@ -966,11 +984,12 @@ int main(){
         right(false),
         up(false),
         down(false),
-        left_click(false){
+        left_click(false),
+        right_click(false){
         }
 
         bool left, right, up, down;
-        bool left_click;
+        bool left_click, right_click;
     };
 
     Hold hold;
@@ -1002,6 +1021,10 @@ int main(){
                         camera.move(camera.getLookPerpendicular() * -speed);
                     }
 
+                    if (hold.right_click){
+                        camera.lookAt((court.getBall().getPosition() - court.getPlayer().getPosition()).normalize());
+                    }
+
                     if (hold.left_click && court.getPlayer().getPosition().distance(court.getBall().getPosition()) < 300){
                         court.hit();
                         hit = false;
@@ -1019,6 +1042,9 @@ int main(){
                     bool pressed = event.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN;
                     if (event.mouse.button == 1){
                         hold.left_click = pressed;
+                    }
+                    if (event.mouse.button == 2){
+                        hold.right_click = pressed;
                     }
                     break;
                 }
