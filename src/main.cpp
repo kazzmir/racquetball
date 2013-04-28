@@ -624,25 +624,25 @@ void al_look_at_transform(ALLEGRO_TRANSFORM *transform, const Physics::Vector & 
     ALLEGRO_TRANSFORM tmp;
 
     // Physics::Vector f = (look - camera).normalize();
-    Physics::Vector f = look.normalize();
-    Physics::Vector s = f.cross(up).normalize();
-    Physics::Vector u = s.cross(f);
+    Physics::Vector front = look.normalize();
+    Physics::Vector side = front.cross(up).normalize();
+    Physics::Vector cameraUp = side.cross(front);
 
     al_identity_transform(&tmp);
 
-    tmp.m[0][0] = s.getX();
-    tmp.m[0][1] = u.getX();
-    tmp.m[0][2] = -f.getX();
+    tmp.m[0][0] = side.getX();
+    tmp.m[0][1] = cameraUp.getX();
+    tmp.m[0][2] = -front.getX();
     tmp.m[0][3] = 0;
 
-    tmp.m[1][0] = s.getY();
-    tmp.m[1][1] = u.getY();
-    tmp.m[1][2] = -f.getY();
+    tmp.m[1][0] = side.getY();
+    tmp.m[1][1] = cameraUp.getY();
+    tmp.m[1][2] = -front.getY();
     tmp.m[1][3] = 0;
 
-    tmp.m[2][0] = s.getZ();
-    tmp.m[2][1] = u.getZ();
-    tmp.m[2][2] = -f.getZ();
+    tmp.m[2][0] = side.getZ();
+    tmp.m[2][1] = cameraUp.getZ();
+    tmp.m[2][2] = -front.getZ();
     tmp.m[2][3] = 0;
 
     tmp.m[3][0] = 0;
